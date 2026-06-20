@@ -1141,21 +1141,33 @@ function newGame(){
 }
 function giveUp(){
   if(state.over) return;
-  state.over=true; state.won=false;
-  // reveal answer row visually on next empty row
-  const r=state.row;
+  // reveal answer on the current active row, letter by letter
+  const r = state.row;
+  state.current = "";
   for(let c=0;c<state.length;c++){
     const t=document.getElementById(`tile-${r}-${c}`);
     if(!t)continue;
-    t.querySelector(".face").textContent=state.answer[c];
-    t.textContent=state.answer[c];
-    t.classList.add("correct");
+    const face=t.querySelector(".face");
+    setTimeout(()=>{
+      t.classList.add("reveal");
+      setTimeout(()=>{
+        if(face) face.textContent=state.answer[c];
+        t.classList.remove("filled");
+        t.classList.add("correct");
+      },270);
+    }, c*220);
   }
+  // record as a loss
   const st=getStats();
   st.played++; st.streak=0; st.winStreakRun=0;
   setStats(st);
-  toast("The word is revealed");
-  setTimeout(()=>showResultModal(false, getStats()),700);
+  state.over=true; state.won=false;
+  const totalDelay = state.length*220+400;
+  // show toast with answer then auto-start new game — no lockup
+  setTimeout(()=>{
+    toast(`The word was: ${state.answer} — new game in 3s`);
+    setTimeout(()=>newGame(), 3000);
+  }, totalDelay);
 }
 
 function setMode(m){
