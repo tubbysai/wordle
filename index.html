@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FaithWord — A Bible-inspired word puzzle</title>
+<style>
+/* ============================================================
+   FaithWord — Stained Glass Cathedral theme
+   ============================================================ */
+:root{
+  --bg:#0a0e1a;
+  --bg2:#111733;
+  --panel:rgba(22,30,58,0.55);
+  --panel-border:rgba(201,168,76,0.22);
+  --gold:#c9a84c;
+  --gold-bright:#f0c040;
+  --green:#3a7d44;
+  --green-glow:#4caf50;
+  --amber:#d6a23a;
+  --absent:#2a2f44;
+  --absent-key:#39405e;
+  --text:#e8e6df;
+  --muted:#9aa0b8;
+  --shadow:0 8px 32px rgba(0,0,0,0.45);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;height:100%;}
+body{
+  font-family:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at 20% 10%, rgba(201,168,76,0.10), transparent 40%),
+    radial-gradient(circle at 85% 85%, rgba(80,120,220,0.12), transparent 45%),
+    linear-gradient(160deg, var(--bg) 0%, var(--bg2) 100%);
+  background-attachment:fixed;
+  min-height:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  overflow-x:hidden;
+}
+/* faint stained-glass lattice */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    repeating-linear-gradient(60deg, rgba(201,168,76,0.04) 0 1px, transparent 1px 60px),
+    repeating-linear-gradient(-60deg, rgba(120,140,220,0.04) 0 1px, transparent 1px 60px);
+  opacity:.6;
+}
+.app{position:relative;z-index:1;width:100%;max-width:540px;padding:14px 12px 28px;display:flex;flex-direction:column;align-items:center;}
+
+/* Header */
+header{width:100%;text-align:center;margin-bottom:10px;}
+.title{
+  font-size:2.1rem;font-weight:800;letter-spacing:.06em;margin:2px 0 0;
+  background:linear-gradient(180deg,var(--gold-bright),var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 22px rgba(240,192,64,0.25);
+}
+.subtitle{font-size:.82rem;color:var(--muted);margin:2px 0 10px;letter-spacing:.04em;}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;}
+.modes{display:flex;gap:4px;background:var(--panel);border:1px solid var(--panel-border);border-radius:12px;padding:4px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+.mode-btn{
+  border:none;background:transparent;color:var(--muted);font-size:.78rem;font-weight:600;
+  padding:6px 9px;border-radius:8px;cursor:pointer;transition:.2s;letter-spacing:.02em;
+}
+.mode-btn.active{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#1a1408;box-shadow:0 2px 10px rgba(240,192,64,0.35);}
+.icon-btn{
+  border:1px solid var(--panel-border);background:var(--panel);color:var(--gold);
+  font-size:.78rem;font-weight:600;padding:8px 12px;border-radius:10px;cursor:pointer;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:.2s;
+}
+.icon-btn:hover,.mode-btn:hover{transform:translateY(-1px);}
+.icon-btn:active{transform:translateY(0);}
+
+/* Board */
+.board-wrap{margin:16px 0 8px;display:flex;justify-content:center;}
+.board{display:grid;gap:7px;}
+.row{display:grid;gap:7px;}
+.tile{
+  width:58px;height:58px;display:flex;align-items:center;justify-content:center;
+  font-size:1.9rem;font-weight:800;text-transform:uppercase;
+  border:2px solid rgba(201,168,76,0.22);border-radius:8px;
+  background:rgba(20,26,48,0.4);color:var(--text);
+  perspective:600px;position:relative;transition:border-color .15s;
+}
+.tile.filled{border-color:rgba(201,168,76,0.6);animation:pop .12s ease;}
+@keyframes pop{0%{transform:scale(.9)}50%{transform:scale(1.06)}100%{transform:scale(1)}}
+.tile .face{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  border-radius:6px;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+}
+.tile.reveal{transform-style:preserve-3d;animation:flip .55s ease forwards;}
+@keyframes flip{0%{transform:rotateX(0)}45%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.tile.correct{background:linear-gradient(160deg,var(--green-glow),var(--green));border-color:var(--gold);color:#fff;box-shadow:0 0 14px rgba(76,175,80,0.4);}
+.tile.present{background:linear-gradient(160deg,#e0b14a,var(--amber));border-color:#e0b14a;color:#1a1408;}
+.tile.absent{background:var(--absent);border-color:var(--absent);color:#8b91a8;}
+.tile.win-pulse{animation:winpulse .6s ease;}
+@keyframes winpulse{0%,100%{transform:translateY(0)}30%{transform:translateY(-10px)}60%{transform:translateY(2px)}}
+
+/* responsive tile sizes per length */
+.board.len4 .tile{width:62px;height:62px;font-size:2rem;}
+.board.len6 .tile{width:50px;height:50px;font-size:1.6rem;}
+
+/* Keyboard */
+.keyboard{width:100%;max-width:520px;margin-top:10px;display:flex;flex-direction:column;gap:7px;}
+.krow{display:flex;gap:5px;justify-content:center;}
+.key{
+  flex:1;min-width:0;height:52px;border:none;border-radius:8px;cursor:pointer;
+  font-size:.95rem;font-weight:700;text-transform:uppercase;
+  background:var(--absent-key);color:var(--text);transition:transform .08s,background .25s;
+  display:flex;align-items:center;justify-content:center;
+}
+.key:active{transform:scale(.92);}
+.key.wide{flex:1.6;font-size:.72rem;}
+.key.correct{background:linear-gradient(160deg,var(--green-glow),var(--green));color:#fff;}
+.key.present{background:linear-gradient(160deg,#e0b14a,var(--amber));color:#1a1408;}
+.key.absent{background:#1c2138;color:#5a6082;}
+
+/* Actions */
+.actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;justify-content:center;}
+.action-btn{
+  border:1px solid var(--panel-border);background:var(--panel);color:var(--gold-bright);
+  padding:9px 16px;border-radius:11px;cursor:pointer;font-weight:600;font-size:.85rem;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);transition:.2s;
+}
+.action-btn:hover{transform:translateY(-1px);border-color:var(--gold);}
+.hint-box{
+  margin-top:12px;max-width:480px;width:100%;text-align:center;font-size:.85rem;color:var(--gold-bright);
+  background:var(--panel);border:1px solid var(--panel-border);border-radius:10px;padding:10px 14px;
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;
+}
+.hint-box.show{display:block;animation:fade .3s ease;}
+@keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+
+/* Toast */
+.toast{
+  position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-20px);
+  background:rgba(10,14,26,0.95);border:1px solid var(--gold);color:var(--gold-bright);
+  padding:11px 20px;border-radius:12px;font-weight:600;font-size:.9rem;z-index:120;
+  box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.3s;text-align:center;max-width:90%;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* Modal */
+.overlay{
+  position:fixed;inset:0;background:rgba(4,7,16,0.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  display:none;align-items:center;justify-content:center;z-index:100;padding:18px;
+}
+.overlay.show{display:flex;animation:fade .25s ease;}
+.modal{
+  width:100%;max-width:420px;background:linear-gradient(165deg,rgba(26,34,64,0.92),rgba(14,18,34,0.95));
+  border:1px solid var(--gold);border-radius:18px;padding:22px;box-shadow:var(--shadow);
+  position:relative;max-height:88vh;overflow-y:auto;
+}
+.modal h2{margin:0 0 4px;font-size:1.6rem;text-align:center;
+  background:linear-gradient(180deg,var(--gold-bright),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.modal .answer-word{text-align:center;font-size:2rem;font-weight:800;letter-spacing:.12em;margin:8px 0 2px;color:#fff;}
+.modal .cat{text-align:center;color:var(--gold);font-size:.85rem;margin-bottom:10px;letter-spacing:.05em;}
+.modal .verse{text-align:center;font-style:italic;color:var(--gold-bright);font-size:.9rem;margin:8px 0;}
+.modal .note{font-size:.9rem;color:var(--text);line-height:1.5;background:rgba(255,255,255,0.04);padding:11px;border-radius:10px;border-left:3px solid var(--gold);}
+.modal .gcount{text-align:center;color:var(--muted);font-size:.82rem;margin:12px 0 4px;}
+.mini-stats{display:flex;justify-content:space-around;margin:14px 0;text-align:center;}
+.mini-stats .s b{display:block;font-size:1.4rem;color:var(--gold-bright);}
+.mini-stats .s span{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;}
+.modal-actions{display:flex;gap:8px;margin-top:8px;}
+.modal-actions button{flex:1;padding:12px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:.9rem;}
+.btn-primary{background:linear-gradient(180deg,var(--gold-bright),var(--gold));color:#1a1408;}
+.btn-ghost{background:transparent;border:1px solid var(--panel-border)!important;color:var(--gold-bright);}
+.close-x{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:1.4rem;cursor:pointer;line-height:1;}
+
+/* Stats distribution */
+.dist{margin:14px 0;}
+.dist-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.8rem;}
+.dist-row .num{width:14px;color:var(--muted);}
+.dist-bar{height:20px;background:var(--gold);color:#1a1408;border-radius:4px;min-width:22px;display:flex;align-items:center;justify-content:flex-end;padding:0 6px;font-weight:700;transition:width .4s;}
+.dist-bar.cur{background:linear-gradient(90deg,var(--green-glow),var(--green));color:#fff;}
+
+/* Sparkles */
+.sparkle{position:fixed;width:8px;height:8px;border-radius:50%;background:var(--gold-bright);
+  box-shadow:0 0 10px var(--gold-bright);pointer-events:none;z-index:130;opacity:0;}
+@keyframes sparkleAnim{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
+
+@media (max-width:430px){
+  .tile{width:50px;height:50px;font-size:1.7rem;}
+  .board.len4 .tile{width:54px;height:54px;}
+  .board.len6 .tile{width:44px;height:44px;font-size:1.4rem;}
+  .key{height:46px;}
+  .title{font-size:1.8rem;}
+}
+@media (max-width:360px){
+  .tile{width:44px;height:44px;font-size:1.5rem;}
+  .board.len6 .tile{width:40px;height:40px;font-size:1.2rem;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1 class="title">FaithWord</h1>
+    <div class="subtitle">A Bible-inspired word puzzle</div>
+    <div class="toolbar">
+      <div class="modes" id="modes">
+        <button class="mode-btn" data-mode="easy">Easy · 4</button>
+        <button class="mode-btn active" data-mode="classic">Classic · 5</button>
+        <button class="mode-btn" data-mode="challenge">Challenge · 6</button>
+        <button class="mode-btn" data-mode="mixed">Mixed</button>
+      </div>
+      <button class="icon-btn" id="statsBtn">Stats</button>
+      <button class="icon-btn" id="newBtn">New Game</button>
+    </div>
+  </header>
+
+  <div class="board-wrap"><div class="board" id="board"></div></div>
+  <div class="hint-box" id="hintBox"></div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="actions">
+    <button class="action-btn" id="hintBtn">Hint</button>
+    <button class="action-btn" id="shareBtn">Share</button>
+    <button class="action-btn" id="giveupBtn">Give Up</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Result Modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <button class="close-x" id="closeModal">&times;</button>
+    <h2 id="resultTitle">Victory</h2>
+    <div class="answer-word" id="resAnswer">GRACE</div>
+    <div class="cat" id="resCat">Virtue</div>
+    <div class="verse" id="resVerse"></div>
+    <div class="note" id="resNote"></div>
+    <div class="gcount" id="resCount"></div>
+    <div class="mini-stats">
+      <div class="s"><b id="msPlayed">0</b><span>Played</span></div>
+      <div class="s"><b id="msWin">0%</b><span>Win</span></div>
+      <div class="s"><b id="msCur">0</b><span>Streak</span></div>
+      <div class="s"><b id="msBest">0</b><span>Best</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="shareModalBtn">Share</button>
+      <button class="btn-primary" id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Modal -->
+<div class="overlay" id="statsOverlay">
+  <div class="modal">
+    <button class="close-x" id="closeStats">&times;</button>
+    <h2>Statistics</h2>
+    <div class="mini-stats">
+      <div class="s"><b id="stPlayed">0</b><span>Played</span></div>
+      <div class="s"><b id="stWin">0%</b><span>Win</span></div>
+      <div class="s"><b id="stCur">0</b><span>Streak</span></div>
+      <div class="s"><b id="stBest">0</b><span>Best</span></div>
+    </div>
+    <div style="text-align:center;color:var(--gold);font-size:.8rem;letter-spacing:.05em;margin-top:6px;">GUESS DISTRIBUTION</div>
+    <div class="dist" id="distBox"></div>
+    <div class="modal-actions"><button class="btn-primary" id="closeStats2">Close</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ============================================================
+   1. CONSTANTS / WORD BANKS
+   ============================================================ */
+const MAX_GUESSES = 6;
+const STORE_KEY = "faithword_v1";
+
+// --- Answer words (objects) ---
+const ANSWERS = {
+  4: [
+    {word:"LOVE",category:"Fruit of Spirit",hint:"The greatest commandment.",verse:"1 John 4:8",note:"God is love; we love because He first loved us."},
+    {word:"HOPE",category:"Virtue",hint:"Confident expectation in God.",verse:"Romans 15:13",note:"Hope anchors the soul through every storm."},
+    {word:"PRAY",category:"Practice",hint:"To speak with God.",verse:"Philippians 4:6",note:"Prayer turns worry into worship."},
+    {word:"HOLY",category:"Attribute",hint:"Set apart, sacred.",verse:"1 Peter 1:16",note:"Be holy, for the Lord your God is holy."},
+    {word:"LORD",category:"Title",hint:"A name for God, our master.",verse:"Psalm 23:1",note:"The Lord is my shepherd; I shall not want."},
+    {word:"AMEN",category:"Word",hint:"So be it, said in prayer.",verse:"Revelation 22:21",note:"A word of agreement and trust in God's promises."},
+    {word:"DOVE",category:"Symbol",hint:"Sign of the Holy Spirit.",verse:"Matthew 3:16",note:"The Spirit descended like a dove at Jesus' baptism."},
+    {word:"LAMB",category:"Symbol",hint:"Title for the sacrificed Christ.",verse:"John 1:29",note:"Behold the Lamb of God who takes away sin."},
+    {word:"GIFT",category:"Concept",hint:"Salvation given freely.",verse:"Romans 6:23",note:"Eternal life is the gift of God."},
+    {word:"KING",category:"Title",hint:"Christ reigns as this.",verse:"Revelation 19:16",note:"King of kings and Lord of lords."},
+    {word:"ROCK",category:"Symbol",hint:"A firm foundation, like God.",verse:"Psalm 18:2",note:"The Lord is my rock and my fortress."},
+    {word:"SEED",category:"Symbol",hint:"The Word sown in hearts.",verse:"Luke 8:11",note:"The seed is the word of God."},
+    {word:"FAST",category:"Practice",hint:"Going without food to seek God.",verse:"Matthew 6:17",note:"Fasting humbles the heart before the Lord."},
+    {word:"GOOD",category:"Attribute",hint:"What God declared creation.",verse:"Psalm 34:8",note:"Taste and see that the Lord is good."},
+    {word:"WORD",category:"Concept",hint:"Scripture; also a name for Christ.",verse:"John 1:1",note:"In the beginning was the Word."},
+    {word:"SOUL",category:"Concept",hint:"The eternal part of you.",verse:"Mark 8:36",note:"What profit to gain the world but lose your soul?"},
+    {word:"GATE",category:"Symbol",hint:"Narrow is the one to life.",verse:"Matthew 7:13",note:"Enter through the narrow gate."},
+    {word:"WINE",category:"Symbol",hint:"Shared at the Last Supper.",verse:"Matthew 26:27",note:"This is my blood of the covenant."},
+    {word:"FISH",category:"Symbol",hint:"Early sign of believers.",verse:"Matthew 4:19",note:"I will make you fishers of men."},
+    {word:"BORN",category:"Concept",hint:"You must be ___ again.",verse:"John 3:3",note:"New birth brings new life in the Spirit."},
+    {word:"REST",category:"Promise",hint:"Found in Christ's invitation.",verse:"Matthew 11:28",note:"Come to me, and I will give you rest."},
+    {word:"PURE",category:"Attribute",hint:"Blessed are the ___ in heart.",verse:"Matthew 5:8",note:"The pure in heart shall see God."},
+    {word:"MEEK",category:"Attribute",hint:"They shall inherit the earth.",verse:"Matthew 5:5",note:"Gentleness is strength under God's control."},
+    {word:"FEAR",category:"Concept",hint:"Reverent awe of the Lord.",verse:"Proverbs 9:10",note:"The fear of the Lord is the beginning of wisdom."},
+    {word:"WALK",category:"Practice",hint:"To live faithfully with God.",verse:"Micah 6:8",note:"Walk humbly with your God."},
+    {word:"VINE",category:"Symbol",hint:"Jesus said 'I am the true ___.'",verse:"John 15:5",note:"Abide in Him as branches to the vine."},
+    {word:"ROSE",category:"Symbol",hint:"Christ ___ from the dead.",verse:"Luke 24:6",note:"He is not here; He has risen."},
+    {word:"CALL",category:"Concept",hint:"God's invitation to follow.",verse:"Romans 8:30",note:"Those He called He also justified."},
+    {word:"SAVE",category:"Concept",hint:"What Jesus came to do.",verse:"Luke 19:10",note:"The Son of Man came to seek and save the lost."},
+    {word:"HEAL",category:"Concept",hint:"What Jesus did for the sick.",verse:"Psalm 147:3",note:"He heals the brokenhearted."},
+    {word:"GAIN",category:"Concept",hint:"To live is Christ, to die is ___.",verse:"Philippians 1:21",note:"Eternal reward outweighs earthly loss."},
+    {word:"OBEY",category:"Practice",hint:"To do God's commands.",verse:"John 14:15",note:"If you love me, keep my commandments."},
+    {word:"GIVE",category:"Practice",hint:"More blessed to ___ than receive.",verse:"Acts 20:35",note:"Generosity reflects God's heart."},
+    {word:"WISE",category:"Attribute",hint:"The ___ man built on rock.",verse:"Matthew 7:24",note:"Hearing and doing the Word brings stability."},
+    {word:"PALM",category:"Symbol",hint:"Branches waved for Jesus.",verse:"John 12:13",note:"Hosanna! Blessed is He who comes."},
+    {word:"TOMB",category:"Place",hint:"It was found empty.",verse:"Matthew 28:6",note:"The empty tomb proclaims the resurrection."},
+    {word:"OATH",category:"Concept",hint:"A solemn promise before God.",verse:"Hebrews 6:17",note:"God confirmed His promise with an oath."},
+    {word:"ALMS",category:"Practice",hint:"Gifts to the poor.",verse:"Matthew 6:3",note:"Give quietly, not for show."},
+    {word:"HEAR",category:"Practice",hint:"___ O Israel, the Lord is one.",verse:"Deuteronomy 6:4",note:"Listening leads to obedience."},
+    {word:"KEEP",category:"Practice",hint:"To guard God's word.",verse:"Psalm 119:11",note:"I have hidden your word in my heart."},
+    {word:"PATH",category:"Symbol",hint:"He makes straight your ___.",verse:"Proverbs 3:6",note:"Trust the Lord to direct your steps."},
+    {word:"GLAD",category:"Emotion",hint:"This is the day; be ___.",verse:"Psalm 118:24",note:"Rejoice in the day the Lord has made."},
+    {word:"TRUE",category:"Attribute",hint:"Jesus is the way and the ___.",verse:"John 14:6",note:"Christ is truth itself."},
+    {word:"FOLD",category:"Symbol",hint:"The sheep belong to one ___.",verse:"John 10:16",note:"One flock and one shepherd."},
+    {word:"GROW",category:"Concept",hint:"To mature in faith.",verse:"2 Peter 3:18",note:"Grow in grace and knowledge of Christ."},
+    {word:"SING",category:"Worship",hint:"Make a joyful noise.",verse:"Psalm 96:1",note:"Sing to the Lord a new song."},
+    {word:"WAIT",category:"Practice",hint:"They that ___ on the Lord.",verse:"Isaiah 40:31",note:"Waiting renews our strength."},
+    {word:"SEEK",category:"Practice",hint:"___ first the kingdom.",verse:"Matthew 6:33",note:"Pursue God above all else."},
+    {word:"KNEW",category:"Concept",hint:"Before you were born, God ___ you.",verse:"Jeremiah 1:5",note:"You are known and chosen by God."},
+    {word:"DEED",category:"Concept",hint:"Faith without works is dead.",verse:"James 2:17",note:"Living faith bears good fruit."},
+    {word:"FREE",category:"Promise",hint:"The truth sets you ___.",verse:"John 8:32",note:"In Christ there is true freedom."},
+    {word:"LIFE",category:"Promise",hint:"Jesus came to give it abundantly.",verse:"John 10:10",note:"He gives life to the full."},
+    {word:"DUST",category:"Concept",hint:"From it man was formed.",verse:"Genesis 2:7",note:"God breathed life into the dust."},
+    {word:"GOLD",category:"Symbol",hint:"A gift of the Magi.",verse:"Matthew 2:11",note:"Worship offered to the newborn King."},
+    {word:"LAMP",category:"Symbol",hint:"Your word is a ___ to my feet.",verse:"Psalm 119:105",note:"Scripture lights our way."},
+    {word:"RISE",category:"Concept",hint:"Take up your mat and ___.",verse:"Mark 2:11",note:"Christ's power brings new beginnings."},
+    {word:"DAWN",category:"Symbol",hint:"Mercies are new at this time.",verse:"Lamentations 3:23",note:"His compassions never fail."},
+    {word:"MILK",category:"Symbol",hint:"Crave the pure ___ of the word.",verse:"1 Peter 2:2",note:"Grow in salvation through Scripture."},
+    {word:"SALT",category:"Symbol",hint:"You are the ___ of the earth.",verse:"Matthew 5:13",note:"Believers preserve and flavor the world."},
+    {word:"WASH",category:"Practice",hint:"___ me, and I shall be clean.",verse:"Psalm 51:7",note:"God purifies the repentant heart."},
+    {word:"FAME",category:"Concept",hint:"Jesus' ___ spread through the land.",verse:"Matthew 9:26",note:"His works pointed people to God."}
+  ],
+  5: [
+    {word:"GRACE",category:"Virtue",hint:"God's undeserved favor.",verse:"Ephesians 2:8",note:"Grace reminds us that salvation is a gift, not earned."},
+    {word:"FAITH",category:"Virtue",hint:"Assurance of things hoped for.",verse:"Hebrews 11:1",note:"Faith is trusting God beyond what we can see."},
+    {word:"JESUS",category:"Name",hint:"The name above all names.",verse:"Philippians 2:10",note:"At His name every knee shall bow."},
+    {word:"CROSS",category:"Symbol",hint:"Where Christ gave His life.",verse:"Galatians 6:14",note:"The cross is the heart of the gospel."},
+    {word:"BIBLE",category:"Object",hint:"God's written word.",verse:"2 Timothy 3:16",note:"All Scripture is God-breathed."},
+    {word:"PEACE",category:"Fruit",hint:"Calm that surpasses understanding.",verse:"John 14:27",note:"Christ leaves His peace with us."},
+    {word:"ANGEL",category:"Being",hint:"A heavenly messenger.",verse:"Luke 2:10",note:"Angels announced the Savior's birth."},
+    {word:"GLORY",category:"Concept",hint:"God's radiant majesty.",verse:"Psalm 19:1",note:"The heavens declare the glory of God."},
+    {word:"MERCY",category:"Virtue",hint:"Compassion withholding judgment.",verse:"Lamentations 3:22",note:"His mercies are new every morning."},
+    {word:"TRUTH",category:"Attribute",hint:"It will set you free.",verse:"John 8:32",note:"Jesus is the way, the truth, and the life."},
+    {word:"PSALM",category:"Object",hint:"A sacred song of praise.",verse:"Psalm 100:1",note:"The Psalms teach us to pour out our hearts."},
+    {word:"LIGHT",category:"Symbol",hint:"Jesus is the ___ of the world.",verse:"John 8:12",note:"In Him is no darkness at all."},
+    {word:"BREAD",category:"Symbol",hint:"Jesus is the ___ of life.",verse:"John 6:35",note:"He satisfies the hunger of the soul."},
+    {word:"TRUST",category:"Practice",hint:"Lean not on your own understanding.",verse:"Proverbs 3:5",note:"Trust the Lord with all your heart."},
+    {word:"SAINT",category:"Person",hint:"One set apart for God.",verse:"Ephesians 1:1",note:"Believers are called saints in Christ."},
+    {word:"HEART",category:"Concept",hint:"Guard it, for it shapes life.",verse:"Proverbs 4:23",note:"From it flow the springs of life."},
+    {word:"SAVED",category:"Concept",hint:"By grace through faith.",verse:"Ephesians 2:8",note:"Salvation is God's gift."},
+    {word:"CROWN",category:"Symbol",hint:"Of life given to the faithful.",verse:"James 1:12",note:"Endurance earns the crown of life."},
+    {word:"SHEEP",category:"Symbol",hint:"We are His flock.",verse:"Psalm 100:3",note:"We are His people, the sheep of His pasture."},
+    {word:"FLESH",category:"Concept",hint:"The Word became ___.",verse:"John 1:14",note:"God dwelt among us in Christ."},
+    {word:"ALTAR",category:"Place",hint:"Where sacrifices were offered.",verse:"Genesis 8:20",note:"A place of worship and surrender."},
+    {word:"REIGN",category:"Concept",hint:"Christ will ___ forever.",verse:"Revelation 11:15",note:"The kingdom belongs to our Lord."},
+    {word:"FAVOR",category:"Concept",hint:"Mary found ___ with God.",verse:"Luke 1:30",note:"God's kindness rests on the humble."},
+    {word:"HONOR",category:"Practice",hint:"___ your father and mother.",verse:"Exodus 20:12",note:"A command with a promise."},
+    {word:"FEAST",category:"Event",hint:"A celebration before the Lord.",verse:"Leviticus 23:2",note:"Sacred feasts remember God's faithfulness."},
+    {word:"MANNA",category:"Provision",hint:"Bread that fell from heaven.",verse:"Exodus 16:15",note:"God provides for each day's need."},
+    {word:"NOBLE",category:"Attribute",hint:"Whatever is ___, think on these.",verse:"Philippians 4:8",note:"Fill your mind with what honors God."},
+    {word:"DAVID",category:"Name",hint:"Shepherd who became king.",verse:"1 Samuel 16:13",note:"A man after God's own heart."},
+    {word:"MOSES",category:"Name",hint:"Led Israel out of Egypt.",verse:"Exodus 3:10",note:"God uses the willing, not the perfect."},
+    {word:"JONAH",category:"Name",hint:"Swallowed by a great fish.",verse:"Jonah 1:17",note:"God's mercy reaches even the reluctant."},
+    {word:"ISAAC",category:"Name",hint:"The promised son of Abraham.",verse:"Genesis 21:3",note:"God keeps His covenant promises."},
+    {word:"JACOB",category:"Name",hint:"Wrestled with God; renamed Israel.",verse:"Genesis 32:28",note:"God transforms our struggles."},
+    {word:"JUDAH",category:"Tribe",hint:"The Lion of the tribe of ___.",verse:"Revelation 5:5",note:"From it came the Messiah."},
+    {word:"SWORD",category:"Symbol",hint:"The ___ of the Spirit is the Word.",verse:"Ephesians 6:17",note:"Scripture is our weapon against evil."},
+    {word:"WATER",category:"Symbol",hint:"Living ___ Jesus offers.",verse:"John 4:14",note:"He gives a spring welling to eternal life."},
+    {word:"STONE",category:"Symbol",hint:"The rejected ___ became the cornerstone.",verse:"Psalm 118:22",note:"Christ is the chief cornerstone."},
+    {word:"FRUIT",category:"Concept",hint:"Of the Spirit: love, joy, peace.",verse:"Galatians 5:22",note:"Good fruit reveals a healthy faith."},
+    {word:"VOICE",category:"Concept",hint:"My sheep hear my ___.",verse:"John 10:27",note:"His sheep know His voice and follow."},
+    {word:"CLEAN",category:"Concept",hint:"Create in me a ___ heart.",verse:"Psalm 51:10",note:"God renews and purifies the heart."},
+    {word:"ABIDE",category:"Practice",hint:"___ in me and I in you.",verse:"John 15:4",note:"Remaining in Christ brings fruit."},
+    {word:"SERVE",category:"Practice",hint:"As for me, I will ___ the Lord.",verse:"Joshua 24:15",note:"True greatness is found in serving."},
+    {word:"BLESS",category:"Practice",hint:"The Lord ___ you and keep you.",verse:"Numbers 6:24",note:"God's favor rests upon His people."},
+    {word:"EAGLE",category:"Symbol",hint:"Wings like an ___ renewed.",verse:"Isaiah 40:31",note:"Hope renews our strength."},
+    {word:"OLIVE",category:"Symbol",hint:"The dove brought an ___ leaf.",verse:"Genesis 8:11",note:"A sign of peace after the flood."},
+    {word:"ROYAL",category:"Concept",hint:"A ___ priesthood, a holy nation.",verse:"1 Peter 2:9",note:"We belong to God's chosen people."},
+    {word:"PETER",category:"Name",hint:"The rock; a chief apostle.",verse:"Matthew 16:18",note:"On this rock I will build my church."},
+    {word:"AARON",category:"Name",hint:"Moses' brother, the first priest.",verse:"Exodus 28:1",note:"Set apart to serve before the Lord."},
+    {word:"CARES",category:"Concept",hint:"Cast all your ___ on Him.",verse:"1 Peter 5:7",note:"He cares for you."},
+    {word:"GUIDE",category:"Concept",hint:"He will ___ you into all truth.",verse:"John 16:13",note:"The Spirit leads us in truth."},
+    {word:"MIGHT",category:"Attribute",hint:"Not by ___ but by My Spirit.",verse:"Zechariah 4:6",note:"God works beyond human strength."},
+    {word:"WORDS",category:"Concept",hint:"His ___ are spirit and life.",verse:"John 6:63",note:"Scripture gives life to the soul."},
+    {word:"BUILD",category:"Concept",hint:"Wise to ___ on the rock.",verse:"Matthew 7:24",note:"A life founded on Christ stands firm."},
+    {word:"SHINE",category:"Practice",hint:"Let your light ___ before others.",verse:"Matthew 5:16",note:"Good works glorify our Father."},
+    {word:"FOUND",category:"Concept",hint:"I once was lost but now am ___.",verse:"Luke 15:6",note:"Heaven rejoices over one who returns."},
+    {word:"RAISE",category:"Concept",hint:"God will ___ us with Christ.",verse:"1 Corinthians 6:14",note:"Resurrection hope is sure."},
+    {word:"SPEAK",category:"Practice",hint:"___, Lord, your servant hears.",verse:"1 Samuel 3:10",note:"A heart ready to listen to God."},
+    {word:"GUARD",category:"Concept",hint:"___ your heart with diligence.",verse:"Proverbs 4:23",note:"The heart is the wellspring of life."},
+    {word:"QUIET",category:"Practice",hint:"Be still and ___ before Him.",verse:"Psalm 46:10",note:"Stillness reveals that He is God."},
+    {word:"SWEET",category:"Concept",hint:"His words are ___ as honey.",verse:"Psalm 119:103",note:"Delight in the goodness of Scripture."},
+    {word:"CHILD",category:"Concept",hint:"Become like a little ___.",verse:"Matthew 18:3",note:"Humble dependence opens the kingdom."},
+    {word:"PURGE",category:"Concept",hint:"___ me, and I shall be clean.",verse:"Psalm 51:7",note:"God washes us whiter than snow."},
+    {word:"FIRST",category:"Concept",hint:"The ___ shall be last.",verse:"Matthew 20:16",note:"God's kingdom reverses the world's order."},
+    {word:"GIVEN",category:"Concept",hint:"To us a child is ___.",verse:"Isaiah 9:6",note:"The promised Savior was given for all."},
+    {word:"ANGER",category:"Concept",hint:"Slow to ___, abounding in love.",verse:"Psalm 103:8",note:"God is patient and compassionate."},
+    {word:"MOUNT",category:"Place",hint:"The Sermon on the ___.",verse:"Matthew 5:1",note:"Jesus taught the way of the kingdom."},
+    {word:"BLOOD",category:"Symbol",hint:"Redeemed by the ___ of the Lamb.",verse:"Ephesians 1:7",note:"His sacrifice secures our redemption."},
+    {word:"RISEN",category:"Concept",hint:"He is ___ indeed.",verse:"Luke 24:34",note:"The Lord has risen!"},
+    {word:"TITHE",category:"Practice",hint:"A tenth given to God.",verse:"Malachi 3:10",note:"Honor God with the firstfruits."},
+    {word:"ROBES",category:"Symbol",hint:"Washed white in the Lamb's blood.",verse:"Revelation 7:14",note:"Made clean by grace."},
+    {word:"VISIT",category:"Practice",hint:"Pure religion: ___ the orphan.",verse:"James 1:27",note:"Care for the vulnerable in their need."},
+    {word:"CHIEF",category:"Concept",hint:"Of sinners, I am the ___.",verse:"1 Timothy 1:15",note:"Grace abounds even to the worst."},
+    {word:"WHEAT",category:"Symbol",hint:"Separated from the chaff.",verse:"Matthew 3:12",note:"God gathers His own at harvest."},
+    {word:"DOORS",category:"Symbol",hint:"Knock and the ___ will open.",verse:"Matthew 7:7",note:"Seek and you will find."},
+    {word:"HYMNS",category:"Worship",hint:"Songs sung to the Lord.",verse:"Colossians 3:16",note:"Sing with gratitude in your hearts."},
+    {word:"HEALS",category:"Concept",hint:"He ___ the brokenhearted.",verse:"Psalm 147:3",note:"God restores wounded souls."},
+    {word:"TOWER",category:"Symbol",hint:"The name of the Lord is a strong ___.",verse:"Proverbs 18:10",note:"The righteous run to it and are safe."},
+    {word:"SHALL",category:"Promise",hint:"Goodness and mercy ___ follow me.",verse:"Psalm 23:6",note:"God's care pursues us all our days."},
+    {word:"DWELL",category:"Promise",hint:"I will ___ in the house of the Lord.",verse:"Psalm 23:6",note:"To remain with God forever."},
+    {word:"RIVER",category:"Symbol",hint:"A ___ of life flows from the throne.",verse:"Revelation 22:1",note:"God refreshes His people forever."},
+    {word:"FLAME",category:"Symbol",hint:"Tongues of ___ at Pentecost.",verse:"Acts 2:3",note:"The Spirit empowered the church."},
+    {word:"YOKED",category:"Concept",hint:"Do not be ___ with unbelievers.",verse:"2 Corinthians 6:14",note:"Walk closely with the faithful."},
+    {word:"GUILT",category:"Concept",hint:"He removes our ___ and shame.",verse:"Psalm 32:5",note:"Confession brings full forgiveness."},
+    {word:"WAGES",category:"Concept",hint:"The ___ of sin is death.",verse:"Romans 6:23",note:"But God's gift is eternal life."},
+    {word:"WORTH",category:"Concept",hint:"You are of great ___ to God.",verse:"Matthew 10:31",note:"You are worth more than many sparrows."},
+    {word:"EARTH",category:"Place",hint:"The ___ is the Lord's.",verse:"Psalm 24:1",note:"All creation belongs to God."},
+    {word:"AWAKE",category:"Practice",hint:"___, O sleeper, and Christ will shine.",verse:"Ephesians 5:14",note:"Rise to the light of new life."},
+    {word:"GRAIN",category:"Symbol",hint:"A ___ of wheat must fall and die.",verse:"John 12:24",note:"Surrender brings a great harvest."},
+    {word:"LOWLY",category:"Virtue",hint:"I am gentle and ___ in heart.",verse:"Matthew 11:29",note:"Find rest in Christ's humility."},
+    {word:"VINES",category:"Symbol",hint:"Branches of the true vine.",verse:"John 15:5",note:"Fruitfulness comes from abiding."},
+    {word:"GLEAM",category:"Symbol",hint:"Let your light ___ in the dark.",verse:"Matthew 5:14",note:"Reflect God's brightness to others."},
+    {word:"PRIDE",category:"Concept",hint:"___ goes before destruction.",verse:"Proverbs 16:18",note:"Humility guards the heart."},
+    {word:"PROVE",category:"Concept",hint:"___ what God's good will is.",verse:"Romans 12:2",note:"A renewed mind discerns His will."},
+    {word:"TENTS",category:"Symbol",hint:"We live in earthly ___ for now.",verse:"2 Corinthians 5:1",note:"An eternal home awaits."},
+    {word:"LOYAL",category:"Virtue",hint:"Be ___ to the Lord your God.",verse:"Deuteronomy 13:4",note:"Cling to Him and serve faithfully."},
+    {word:"WIDOW",category:"Person",hint:"God defends the ___ and orphan.",verse:"Psalm 68:5",note:"He is a Father to the fatherless."},
+    {word:"GRAFT",category:"Concept",hint:"Branches ___ into the olive tree.",verse:"Romans 11:17",note:"Gentiles joined to God's promises."},
+    {word:"OFFER",category:"Practice",hint:"___ yourselves as living sacrifices.",verse:"Romans 12:1",note:"Worship with your whole life."},
+    {word:"HASTE",category:"Concept",hint:"Mary went with ___ to share the news.",verse:"Luke 1:39",note:"Good news compels us to go."},
+    {word:"MOURN",category:"Emotion",hint:"Blessed are those who ___.",verse:"Matthew 5:4",note:"They shall be comforted."},
+    {word:"PURSE",category:"Concept",hint:"Provide a ___ that will not wear out.",verse:"Luke 12:33",note:"Treasure in heaven never fails."},
+    {word:"SCALE",category:"Concept",hint:"God weighs the heart in the ___.",verse:"Proverbs 21:2",note:"He sees beyond outward appearances."},
+    {word:"LABOR",category:"Practice",hint:"___ for the bread that endures.",verse:"John 6:27",note:"Seek what truly satisfies."},
+    {word:"WEARY",category:"Emotion",hint:"Come to me, all who are ___.",verse:"Matthew 11:28",note:"Christ gives rest to the tired."},
+    {word:"YEAST",category:"Symbol",hint:"A little ___ works through the dough.",verse:"Galatians 5:9",note:"Small influences shape the whole."},
+    {word:"THORN",category:"Symbol",hint:"A ___ in the flesh kept Paul humble.",verse:"2 Corinthians 12:7",note:"God's grace is sufficient in weakness."},
+    {word:"NURSE",category:"Concept",hint:"Gentle as a ___ caring for children.",verse:"1 Thessalonians 2:7",note:"Lead others with tenderness."},
+    {word:"GLEAN",category:"Practice",hint:"Leave some grain to ___ for the poor.",verse:"Leviticus 19:10",note:"Generosity remembers the needy."}
+  ],
+  6: [
+    {word:"WISDOM",category:"Virtue",hint:"Begins with the fear of the Lord.",verse:"Proverbs 9:10",note:"True wisdom starts with reverence for God."},
+    {word:"PRAYER",category:"Practice",hint:"Communion with God.",verse:"James 5:16",note:"The prayer of the righteous is powerful."},
+    {word:"PRAISE",category:"Worship",hint:"Honor lifted up to God.",verse:"Psalm 150:6",note:"Let everything that breathes praise the Lord."},
+    {word:"GOSPEL",category:"Concept",hint:"The good news of Christ.",verse:"Romans 1:16",note:"It is the power of God for salvation."},
+    {word:"SAVIOR",category:"Title",hint:"One who rescues; born in Bethlehem.",verse:"Luke 2:11",note:"A Savior, who is Christ the Lord."},
+    {word:"HEAVEN",category:"Place",hint:"God's eternal dwelling.",verse:"Matthew 6:20",note:"Store up treasures where they last forever."},
+    {word:"SPIRIT",category:"Person",hint:"The Holy ___, our Helper.",verse:"John 14:26",note:"He teaches and reminds us of Christ's words."},
+    {word:"TEMPLE",category:"Place",hint:"Your body is a ___ of the Spirit.",verse:"1 Corinthians 6:19",note:"We are dwelling places of God."},
+    {word:"REPENT",category:"Practice",hint:"To turn from sin toward God.",verse:"Acts 3:19",note:"Turning to God brings refreshing."},
+    {word:"HUMBLE",category:"Virtue",hint:"Lowly and submitted to God.",verse:"James 4:10",note:"Humble yourself and He will lift you up."},
+    {word:"REDEEM",category:"Concept",hint:"To buy back; what Christ did for us.",verse:"Galatians 3:13",note:"Christ redeemed us from the curse."},
+    {word:"PSALMS",category:"Object",hint:"The Bible's book of songs.",verse:"Psalm 1:1",note:"Delight in the law of the Lord."},
+    {word:"MANGER",category:"Object",hint:"Christ's first humble bed.",verse:"Luke 2:7",note:"The King of glory born in lowliness."},
+    {word:"PARDON",category:"Concept",hint:"Forgiveness of sins.",verse:"Isaiah 55:7",note:"God will abundantly pardon."},
+    {word:"ZEALOT",category:"Person",hint:"One zealous for God's cause.",verse:"Luke 6:15",note:"Simon the Zealot followed Jesus."},
+    {word:"WONDER",category:"Concept",hint:"Awe at God's works.",verse:"Psalm 139:14",note:"We are fearfully and wonderfully made."},
+    {word:"CHOSEN",category:"Concept",hint:"A ___ people, royal priesthood.",verse:"1 Peter 2:9",note:"Selected to declare His praises."},
+    {word:"ELIJAH",category:"Name",hint:"Prophet who called down fire.",verse:"1 Kings 18:38",note:"The Lord answered by fire."},
+    {word:"DANIEL",category:"Name",hint:"Survived the lions' den.",verse:"Daniel 6:22",note:"God shut the lions' mouths."},
+    {word:"JOSEPH",category:"Name",hint:"Sold by brothers, saved a nation.",verse:"Genesis 50:20",note:"What was meant for evil, God used for good."},
+    {word:"SAMSON",category:"Name",hint:"Judge of great strength.",verse:"Judges 16:28",note:"God's strength shown through weakness."},
+    {word:"GIDEON",category:"Name",hint:"Led 300 to victory.",verse:"Judges 7:7",note:"God saves by few as easily as many."},
+    {word:"ESTHER",category:"Name",hint:"Queen who saved her people.",verse:"Esther 4:14",note:"For such a time as this."},
+    {word:"THOMAS",category:"Name",hint:"The doubting apostle who believed.",verse:"John 20:28",note:"My Lord and my God!"},
+    {word:"SIMEON",category:"Name",hint:"Held the infant Christ in the temple.",verse:"Luke 2:28",note:"My eyes have seen Your salvation."},
+    {word:"MARTHA",category:"Name",hint:"Sister of Mary and Lazarus.",verse:"Luke 10:41",note:"Only one thing is needed: sit at Jesus' feet."},
+    {word:"NATHAN",category:"Name",hint:"Prophet who confronted David.",verse:"2 Samuel 12:7",note:"You are the man."},
+    {word:"WIDOWS",category:"Concept",hint:"Care for the orphans and ___.",verse:"James 1:27",note:"Pure religion cares for the needy."},
+    {word:"RANSOM",category:"Concept",hint:"Christ gave His life as a ___.",verse:"Mark 10:45",note:"He served and gave Himself for many."},
+    {word:"REFUGE",category:"Symbol",hint:"God is our ___ and strength.",verse:"Psalm 46:1",note:"A very present help in trouble."},
+    {word:"ANOINT",category:"Practice",hint:"To set apart with oil.",verse:"Psalm 23:5",note:"You anoint my head with oil."},
+    {word:"GENTLE",category:"Fruit",hint:"A ___ answer turns away wrath.",verse:"Proverbs 15:1",note:"Gentleness defuses conflict."},
+    {word:"SERMON",category:"Event",hint:"The ___ on the Mount.",verse:"Matthew 5:1",note:"Jesus taught the way of blessing."},
+    {word:"DESERT",category:"Place",hint:"Jesus was tempted there 40 days.",verse:"Matthew 4:1",note:"Even in the wilderness, God sustains."},
+    {word:"GARDEN",category:"Place",hint:"Eden, and Gethsemane.",verse:"Genesis 2:8",note:"Places of beginning and surrender."},
+    {word:"PILLAR",category:"Symbol",hint:"God led by a ___ of fire.",verse:"Exodus 13:21",note:"God guides His people day and night."},
+    {word:"ALMOND",category:"Symbol",hint:"Aaron's rod budded with ___.",verse:"Numbers 17:8",note:"God confirms His chosen ones."},
+    {word:"CHERUB",category:"Being",hint:"An angelic guardian.",verse:"Genesis 3:24",note:"Cherubim guarded the way to life."},
+    {word:"NATION",category:"Concept",hint:"Make disciples of every ___.",verse:"Matthew 28:19",note:"The gospel is for all peoples."},
+    {word:"MARVEL",category:"Concept",hint:"The crowds ___ at Jesus' teaching.",verse:"Matthew 7:28",note:"His authority amazed all who heard."},
+    {word:"TONGUE",category:"Concept",hint:"The ___ holds life and death.",verse:"Proverbs 18:21",note:"Use words to build and bless."},
+    {word:"HEALED",category:"Concept",hint:"By His wounds we are ___.",verse:"Isaiah 53:5",note:"Christ's suffering brings our healing."},
+    {word:"VESSEL",category:"Symbol",hint:"We hold treasure in jars of clay.",verse:"2 Corinthians 4:7",note:"God's power shines through our weakness."},
+    {word:"SACRED",category:"Attribute",hint:"Holy and set apart.",verse:"Exodus 3:5",note:"Take off your sandals; this ground is holy."},
+    {word:"WATERS",category:"Symbol",hint:"He leads me beside quiet ___.",verse:"Psalm 23:2",note:"God restores the weary soul."},
+    {word:"PLENTY",category:"Concept",hint:"My cup overflows with ___.",verse:"Psalm 23:5",note:"God's provision is abundant."},
+    {word:"TALENT",category:"Symbol",hint:"The parable of the ___.",verse:"Matthew 25:15",note:"Faithful use of what God entrusts."},
+    {word:"KINDLY",category:"Fruit",hint:"Be ___ and compassionate.",verse:"Ephesians 4:32",note:"Kindness reflects the heart of God."},
+    {word:"REVIVE",category:"Concept",hint:"Will you not ___ us again?",verse:"Psalm 85:6",note:"Seek renewal from the Lord."},
+    {word:"PURITY",category:"Virtue",hint:"Set an example in ___.",verse:"1 Timothy 4:12",note:"Live a clean and devoted life."},
+    {word:"STREAM",category:"Symbol",hint:"Like a tree planted by ___ of water.",verse:"Psalm 1:3",note:"Rooted in God, we bear fruit."},
+    {word:"ENDURE",category:"Concept",hint:"The one who ___ to the end is saved.",verse:"Matthew 24:13",note:"Perseverance leads to life."},
+    {word:"RESCUE",category:"Concept",hint:"He will ___ the needy.",verse:"Psalm 72:12",note:"God delivers the helpless."},
+    {word:"SEASON",category:"Concept",hint:"A time and ___ for everything.",verse:"Ecclesiastes 3:1",note:"God works through every season."},
+    {word:"MIRROR",category:"Symbol",hint:"We see now as in a ___ dimly.",verse:"1 Corinthians 13:12",note:"One day we will see fully."},
+    {word:"FAMINE",category:"Concept",hint:"A ___ of hearing God's words.",verse:"Amos 8:11",note:"Hunger for the truth of Scripture."},
+    {word:"BARLEY",category:"Symbol",hint:"Five ___ loaves fed thousands.",verse:"John 6:9",note:"God multiplies small offerings."},
+    {word:"LOAVES",category:"Symbol",hint:"Five ___ and two fish.",verse:"Matthew 14:17",note:"Little becomes much in God's hands."},
+    {word:"CAMELS",category:"Symbol",hint:"Easier for a ___ through a needle.",verse:"Matthew 19:24",note:"Riches must not rule the heart."},
+    {word:"DEMONS",category:"Being",hint:"Even the ___ submit to His name.",verse:"Luke 10:17",note:"Christ has authority over all evil."},
+    {word:"MARTYR",category:"Person",hint:"One who dies for the faith.",verse:"Acts 7:59",note:"Stephen looked to heaven as he died."},
+    {word:"LISTEN",category:"Practice",hint:"Be quick to ___, slow to speak.",verse:"James 1:19",note:"Wisdom begins with hearing."},
+    {word:"FAVORS",category:"Concept",hint:"His ___ never come to an end.",verse:"Lamentations 3:22",note:"Steadfast love endures forever."},
+    {word:"SERAPH",category:"Being",hint:"A fiery angel before the throne.",verse:"Isaiah 6:2",note:"Holy, holy, holy is the Lord."},
+    {word:"UNITED",category:"Concept",hint:"Be ___ in mind and spirit.",verse:"Philippians 2:2",note:"One heart in love for Christ."},
+    {word:"RICHES",category:"Concept",hint:"Lay up ___ in heaven.",verse:"Matthew 6:20",note:"Eternal wealth cannot be stolen."},
+    {word:"SHIELD",category:"Symbol",hint:"Take up the ___ of faith.",verse:"Ephesians 6:16",note:"Faith extinguishes the enemy's arrows."},
+    {word:"HELMET",category:"Symbol",hint:"Put on the ___ of salvation.",verse:"Ephesians 6:17",note:"Guard your mind with hope."},
+    {word:"WORTHY",category:"Attribute",hint:"___ is the Lamb who was slain.",verse:"Revelation 5:12",note:"Christ deserves all honor."},
+    {word:"FOLLOW",category:"Practice",hint:"Come, ___ me, said Jesus.",verse:"Matthew 4:19",note:"Discipleship means walking with Christ."},
+    {word:"SECRET",category:"Practice",hint:"Pray to your Father in ___.",verse:"Matthew 6:6",note:"God sees what is done quietly."},
+    {word:"LILIES",category:"Symbol",hint:"Consider the ___ of the field.",verse:"Matthew 6:28",note:"God clothes and cares for His own."},
+    {word:"BRANCH",category:"Symbol",hint:"I am the vine, you are the ___.",verse:"John 15:5",note:"Stay connected to bear fruit."},
+    {word:"VICTOR",category:"Concept",hint:"In Christ we are more than ___.",verse:"Romans 8:37",note:"Overwhelming victory is ours."},
+    {word:"REWARD",category:"Concept",hint:"God ___ those who seek Him.",verse:"Hebrews 11:6",note:"He sees and repays the faithful."},
+    {word:"PARENT",category:"Concept",hint:"Honor your ___ in the Lord.",verse:"Ephesians 6:1",note:"Obedience pleases God."},
+    {word:"TEMPER",category:"Concept",hint:"A fool gives full vent to his ___.",verse:"Proverbs 29:11",note:"The wise keep themselves calm."},
+    {word:"SINNER",category:"Person",hint:"Christ came to call the ___.",verse:"Mark 2:17",note:"No one is beyond His reach."},
+    {word:"SAINTS",category:"Person",hint:"Fellowship of the ___.",verse:"Ephesians 2:19",note:"Citizens together in God's household."},
+    {word:"WISELY",category:"Practice",hint:"Walk ___, redeeming the time.",verse:"Ephesians 5:15",note:"Make the most of each day."},
+    {word:"SOWING",category:"Practice",hint:"___ generously brings a great reward.",verse:"2 Corinthians 9:6",note:"Give cheerfully and reap abundantly."},
+    {word:"REAPER",category:"Person",hint:"The ___ gathers the harvest.",verse:"John 4:36",note:"God brings the increase to our work."},
+    {word:"TITHES",category:"Practice",hint:"Bring the whole ___ to the storehouse.",verse:"Malachi 3:10",note:"Test God's faithfulness in giving."},
+    {word:"MANTLE",category:"Symbol",hint:"Elijah's ___ passed to Elisha.",verse:"2 Kings 2:13",note:"God continues His work through others."},
+    {word:"PEBBLE",category:"Symbol",hint:"David chose five smooth ___ stones.",verse:"1 Samuel 17:40",note:"God uses the small to defeat giants."},
+    {word:"CRADLE",category:"Object",hint:"From a humble ___ came the King.",verse:"Luke 2:16",note:"Glory wrapped in lowliness."},
+    {word:"EXALTS",category:"Concept",hint:"God ___ the humble in due time.",verse:"1 Peter 5:6",note:"Lowliness is the path to honor."},
+    {word:"BEAUTY",category:"Concept",hint:"Worship the Lord in the ___ of holiness.",verse:"Psalm 29:2",note:"His holiness is glorious."},
+    {word:"PERMIT",category:"Concept",hint:"God will ___ trials to refine us.",verse:"1 Peter 1:7",note:"Tested faith proves genuine."},
+    {word:"SAYING",category:"Concept",hint:"Trustworthy is this ___.",verse:"1 Timothy 1:15",note:"Christ came to save sinners."},
+    {word:"BURDEN",category:"Concept",hint:"Cast your ___ on the Lord.",verse:"Psalm 55:22",note:"He sustains the weary."},
+    {word:"ORPHAN",category:"Person",hint:"God sets the ___ in families.",verse:"Psalm 68:6",note:"He cares for the lonely."},
+    {word:"BISHOP",category:"Person",hint:"An overseer in the church.",verse:"1 Timothy 3:1",note:"A noble task of service."},
+    {word:"GOLDEN",category:"Symbol",hint:"Do to others the ___ rule.",verse:"Matthew 7:12",note:"Treat others as you wish to be treated."},
+    {word:"JORDAN",category:"Place",hint:"Baptized in the ___ river.",verse:"Matthew 3:13",note:"Waters of new beginnings."},
+    {word:"CANAAN",category:"Place",hint:"The promised land of ___.",verse:"Exodus 3:8",note:"A land flowing with milk and honey."},
+    {word:"JOSHUA",category:"Name",hint:"Led Israel into the promised land.",verse:"Joshua 1:9",note:"Be strong and courageous."},
+    {word:"RACHEL",category:"Name",hint:"Beloved wife of Jacob.",verse:"Genesis 29:18",note:"God remembered her in time."},
+    {word:"SILVER",category:"Symbol",hint:"Refined like ___ in the fire.",verse:"Malachi 3:3",note:"God purifies His people."},
+    {word:"GRAVEN",category:"Concept",hint:"Make no ___ image to worship.",verse:"Exodus 20:4",note:"Worship God alone."},
+    {word:"SUPPER",category:"Event",hint:"The Lord's ___ remembers His death.",verse:"1 Corinthians 11:20",note:"Do this in remembrance of Him."},
+    {word:"FATHER",category:"Title",hint:"Our ___ who art in heaven.",verse:"Matthew 6:9",note:"God invites us to call Him Father."},
+    {word:"MOTHER",category:"Person",hint:"Honor your ___ in the Lord.",verse:"Exodus 20:12",note:"A command with a promise."},
+    {word:"DESIRE",category:"Concept",hint:"Delight in the Lord; He gives your ___.",verse:"Psalm 37:4",note:"Aligned hearts find true joy."},
+    {word:"PURSUE",category:"Practice",hint:"___ righteousness and peace.",verse:"2 Timothy 2:22",note:"Chase after what honors God."},
+    {word:"DEVOTE",category:"Practice",hint:"___ yourselves to prayer.",verse:"Colossians 4:2",note:"Be steadfast and watchful."},
+    {word:"GROWTH",category:"Concept",hint:"God gives the ___, not us.",verse:"1 Corinthians 3:7",note:"He brings the increase."},
+    {word:"LABORS",category:"Practice",hint:"Rest from your ___ in the Lord.",verse:"Revelation 14:13",note:"Faithful work is never wasted."},
+    {word:"LIVING",category:"Concept",hint:"The ___ God hears our prayers.",verse:"Matthew 16:16",note:"He is the source of all life."},
+    {word:"MEEKLY",category:"Practice",hint:"Receive the word ___.",verse:"James 1:21",note:"Humble hearts welcome truth."},
+    {word:"VIRTUE",category:"Virtue",hint:"Add to your faith ___.",verse:"2 Peter 1:5",note:"Pursue moral excellence."},
+    {word:"CALLED",category:"Concept",hint:"Many are ___, few are chosen.",verse:"Matthew 22:14",note:"Respond to God's invitation."}
+  ]
+};
+
+// --- Guess banks (large common-word lists). Answers auto-included. ---
+const GUESS_RAW = {
+4:`able acid aged also area army away baby back ball band bank base bath beam bean bear beat been beer bell belt bend best bird bite blow blue boat body bold bolt bone book boot born boss both bowl burn busy cake call calm came camp card care case cash cast cell chat chip city clay clip club coal coat code cold come cook cool cope copy core corn cost crew crop cube cure cute dare dark data date dawn days dead deal dear debt deck deed deep deer desk dial dice diet dirt dish does dome done door dose down draw drew drop drum dual duck dull dust duty each earl earn east easy edge else even ever evil exit face fact fade fail fair fall fame farm fast fate fear feat feed feel fees fell felt file fill film find fine fire firm fish five flag flat flaw flee flew flip flow folk font food fool foot ford form fort four free frog from fuel full fund gain game gang gate gave gear gene gift girl give glad glow goal goat goes gold golf gone good gown grab gray grew grid grim grin grip grow gulf hair half hall hand hang hard harm hash hate have hawk haze head heal heap hear heat held hell help herb herd here hero hide high hill hint hire hold hole holy home hood hook hope horn hose host hour huge hung hunt hurt hush icon idea idle inch into iron item jail join joke jump jury just keen keep kept kick kill kind king kiss kite knee knew knit knot know lace lack lady laid lake lamb lame lamp land lane late lawn lazy lead leaf leak lean leap left lend lens less liar lick lied life lift like lily limb lime line link lion list live load loan lock loft logo lone long look loop lord lose loss lost loud love luck lump lung made mail main make male mall many maps mare mark mask mass mate math meal mean meat meet melt menu mere mesh mess mild mile milk mill mind mine mint miss mist mode mold mole mood moon more moss most moth move much mule muse must mute myth nail name navy near neat neck need nest news next nice nick nine node none noon norm nose note noun oath obey odds oils okay once only onto open oral oven over pace pack pads page paid pain pair pale palm pace park part pass past path pawn peak pear peer pile pill pine pink pint pipe plan play plea plot plow plug plum plus poem poet poke pole poll pond pony pool poor pope pore port pose post pour pray prey prim prize prom puff pull pump pure push quit race rack rage raid rail rain rake rang rank rare rate rays read real reap rear rely rent rest rice rich ride ring riot rise risk road roar robe rock rode role roll roof room root rope rose rosy ruby rude rule rung rush rust sack safe said sail sake sale salt same sand sang sank save scar seal seam seat seed seek seem seen self sell semi send sent ship shoe shop shot show shut sick side sigh sign silk sill sing sink site size skin skip slab slam slap slid slim slip slot slow snap snow soak soap soar sock soft soil sold sole solo some song sons soon sore sort soul soup sour spin spit spot star stay stem step stir stop such suit sung sunk sure swap swim sworn tail tale talk tall tame tank tape task team tear tech tell tend tent term test text than that thaw thee them then they thin this thus tide tidy tied ties tile till time tiny tips toad toes told toll tomb tone took tool toss tour town trap tray tree trim trip true tube tune turn twin type ugly undo unit upon urge used user vain vary vase vast veil vein verb very vest vice view vine void vote wade wage wait wake walk wall wand want ward ware warm warn wash wave weak wear weed week weep well went were west what when whip whom wide wife wild will wind wine wing wink wipe wire wise wish wolf wood wool word wore work worm worn wrap yard yarn yawn yeah year yell yoke your zeal zero zone zoom`,
+5:`about above abuse actor acute admit adopt adult after again agent agree ahead alarm album alert alike alive allow alone along alter among angel anger angle angry ankle apart apple apply april apron arena argue arise armed armor array arrow aside asset audio audit avoid awake award aware awful bacon badge badly baker basic basin basis batch beach beard beast began begin begun being below bench berry birth black blade blame blank blast blaze bleed blend bless blind blink block blood bloom blown blunt blush board boast bonus boost booth bound brace brain brake branch brand brave bread break breed brick bride brief bring broad broke brook broom brown brush build built bunch burnt burst cabin cable cache canal candy canon cards cargo carol carry carve catch cause cease chain chair chalk chant chaos charm chart chase cheap check cheek cheer chess chest chief child chill china choir chord chose chunk civic civil claim clamp clash clasp class clean clear clerk click cliff climb cling clock close cloth cloud clown clubs coach coast color comic coral could count court cover crack craft crane crash crawl crazy cream creek crept crest cried crime crisp cross crowd crown crude cruel crumb crush crust curve cycle daily dairy dance dated dealt death debut decay defer delay delta dense depth devil diary digit dimly dirty ditch diver dizzy dodge doing donor doubt dough dozen draft drain drama drank drawn dread dream dress dried drift drill drink drive drove drown drum dryer dusty dwell eager eagle early earth ebony eight elbow elder elect elite empty enact endow enemy enjoy enter entry equal equip erase error essay event every exact exalt excel exert exile exist extra fable faced facts faint fairy faith false fancy fatal fault favor feast fence ferry fetch fever fiber field fiery fifth fifty fight filed final finch first fixed flame flash flask fleet flesh flick fling flint float flock flood floor flora flour fluid flush flute focal focus foggy folks force forge forgo forth forty forum found frame frank fraud fresh friar fried front frost frown fruit fully funny gauge ghost giant given giver glade gland glare glass gleam glide globe gloom glory glove going grace grade grain grand grant grape graph grasp grass grate grave gravy graze great greed green greet grief grill grime grind groan groom grove growl grown gruff guard guess guest guide guild guilt habit hairy halve happy hardy harsh haste hatch haunt haven heart heavy hedge hello hence hilly hinge hobby holds holes holly honey honor horde horse hotel house hover human humid humor hurry icing ideal idiom image imply incur index inert infer inlet inner input intro irony issue ivory jelly jewel joint joker jolly judge juice juicy kayak kebab kneel knelt knife knock known label labor laden lager lance lapse large later laugh layer leach leads leaky leant leapt learn lease least leave ledge legal lemon level lever light liked liken limbs limit lined linen liner lingo links lions lipid liter lived liver llama loads loaf loan lobby local logic loose lorry loser lover lower loyal lucky lumber lunar lunch lying magic major maker maple march marsh match maybe mayor meant medal media merge merit merry metal meter midst might mimic miner minor minus mixed model moist money month moral motel motor mound mount mourn mouse mouth moved mover movie mucky muddy mummy mural music nadir naked nasty naval nerve never newer newly niche niece night noble noise noisy north notch noted novel nurse nutty oasis occur ocean offer often olive onion onset opera orbit order organ ought ounce outer owned owner paced pages paint panel panic paper party pasta paste patch patio pause peace peach pearl pedal penny peony perch peril petty phase phone photo piano piece piety pilot pinch piped pious pitch pivot pixel pizza place plain plane plant plate plaza plead pleat plump plush poems point poise poker polar polls porch posed power praise press price pride pried prime print prior prism prize probe proof proud prove prune psalm pulse punch pupil puppy purer purge purse quail quake quart queen query quest queue quick quiet quill quilt quirk quite quota quote rabbi radar radio raise rally ranch range rapid ratio raven reach react ready realm rebel recur refer reign relax relay reply rerun reset resin retro reuse rhyme rider ridge rifle right rigid rinse ripen risen risky rival river roads roast robe robin robot rocky rogue roman rouge rough round route royal rugby ruler rumor runny rural rusty sadly saint salad salon salsa sandy satin sauce saved scale scalp scant scare scarf scene scent scoff scold scoop scope score scout scrap scrub seats seize sense serve setup seven shade shaft shake shall shame shape share shark sharp shave sheep sheen sheep sheet shelf shell shift shine shiny ships shire shirt shoal shock shone shook shoot shore short shout shown shrub shrug shyly sided siege sight sigma silly since sinew siren sixth sixty sized skate skies skill skirt skull skunk slack slain slang slant slate slave sleek sleep slept slice slide slime sling slope slosh sloth slump small smart smash smell smile smirk smith smoke snack snail snake snare sneak sniff snore snort snowy soapy sober solar solid solve sonar sonic sorry sound south space spade spain spank spare spark speak spear speck speed spell spend spent spice spike spill spine spire spite split spoil spoke spoon sport spout spray spree sprig spurn spurt squad squat squid stack staff stage stain stair stake stale stalk stall stamp stand stare stark stars start state stays steak steal steam steel steep steer stems stern stick stiff still sting stink stint stock stoic stole stomp stone stood stool stoop store storm story stout stove strap straw stray strip strut study stuff stump stung stunt style suave sugar suite sunny sunny super surge swarm swear sweat sweep sweet swell swept swift swing swirl sword swore swung syrup table taboo tacit taken tales tally tango taper tardy tarot taste teach teary teeth tempo tempt tenor tense tenth terms terse thank theft their theme there these thick thief thigh thing think third thong thorn those three threw throb throw thumb thump tibia tidal tiger tight tiles timer tipsy title toast today token tonal toned tonic torch total touch tough towel tower toxic trace track trade trail train trait tramp trans trash tread treat trend trial tribe trick tried tries trill trim tripe troop trout truce truck truly trump trunk trust truth tulip tumor tunic turbo tutor twang tweak tweed tweet twice twine twist tying udder ulcer ultra uncle under undid undue unify union unite unity until upper upset urban usage usher using usual utter vague valet valid valor value valve vapor vault venom venue verge verse vials vicar video views vigil vigor villa vinyl viola viper viral virus visit visor vista vital vivid vocal vodka vogue voice volts voter vouch vowel wafer wager wagon waist waltz wares warts waste watch water waver weary weave wedge weedy weeks weigh weird whale wharf wheat wheel where which while whine whirl whisk white whole whoop whose widen wider widow width wield wimpy wince winch windy wiped wiper wired wiser witch witty woke woken woman women woody wooly words world worry worse worst worth would wound woven wrack wrath wreck wrist write wrong wrote wrung yacht yearn yeast yield young youth zebra zesty`,
+6:`abound absent absorb accept access accord accuse across acting action active actor actual adhere adjust admire admits adopts advice advise affair affect afford afraid agency agenda agreed almost amount animal annual answer anyone anyway appeal appear around arrive artist aspect assert assess assets assign assist assume assure attach attack attain attend attune august author avenue awaken backed banner barely barrel basket battle beacon beaten beauty became become before behalf behave behind belief belong beside better beware beyond binder bishop bitter blamed blazer bleach blocks bodily border bother bottle bottom bought bounce bound bounty branch brandy breach bread breath breeze bridge bright bring broken bronze broom brutal bubble bucket budget bullet bundle burden bureau burned bushel butter button bypass camera campus cancel cancer candle cannon canopy canvas canyon carbon career caring carpet carrot carter casino castle casual catchy caught cellar cement census center chance change chapel charge charms charts chased cheeks cheese cherry chosen chrome circle clause clergy client closed closer clothe cloudy clutch coarse coffee coined collar combat coming common cookie cooled copper corner cosmic cotton county couple course cousin coward cradle crater create credit crisis crispy critic crops crowds cruise crumbs crunch cudgel curfew custom damage danger dapper dazzle dealer debate decade deceit decide decode decree deepen defeat defend define defied degree delays delete demand denial denote depart depend deploy depths deputy derive desert design desire detail detect devise devote dialog differ digest dinner direct disarm disown divine doctor dollar domain donate dotted double doubts driven driver dunked during easter editor effect effort either eldest eleven embark emblem emerge employ enable encode endure energy engage engine enlist enough ensure entire entity equity errand escape estate ethics exceed except excess excite excuse exempt exhale exhort exotic expand expect expert expire expose extend extent fabric facade facing factor fairer fairly fallen falter family famine famous fasten father fauna fellow female ferret fervor fields fierce figure filing finale finely finest finger finish flames flavor flight flying follow forbid forces forest forget formal format former fossil foster fought fourth fridge friend fringe frozen fungus funnel funny future gadget gallon garage garden garlic garner gather gauges gazing gender gentle ghosts giblet glance gloomy gnarled golden gospel gossip govern grades grain grants graphs gravel gravy ground groups grover growth guards guilty guitar hailed hairdo hamlet hammer hamper handle handed happen harbor hardly hauled hazard healed health hearts heaven height helmet hereby hidden higher hiking hinder hiring holder honest honors hoping horror humane humble hunger hungry hunter hybrid icicle ideals images impact impart import impose income indeed indoor induce infant inform injure injury inland inmate insane insect insert inside insist intact intend intent invest invite island isobar itself jacket jaguar jersey jigsaw jingle jockey joined journey jovial joyful judges juggle jumble jungle junior justly kettle kidney kindle kindly kingly kisser knight ladder lagoon lament landed laptop larger lashes latest latter launch lawyer leader league lectern legacy legend lemons length lesson lethal letter levels likely linear linger liquid listen litter living locale locate locket lodged lonely longer looked lookup loosen lotion lovely loving lowers loyalty lumber luxury madame magnet maiden major makers malady manage manner mantle manual marble margin marine marker market maroon marrow martyr master matter mature meadow medals medium melody member memory mended mentor merely merger metric middle milder mildew mining minute mirror misery misled mocked modern modest modify moment monkey morale morbid morsel mortar mostly mother motion motive mottos mounts mourns moving murmur muscle museum mutter mutual myriad mystic naming napkin narrow nation native nature nearby nearly needle nephew nicely nickel nights nimble nobody normal notice notion novels nudges number nuptial nurses oblige obtain occult occupy occurs office offset oldest onward openly oppose option oracle orange orchid ordeal organs orient origin oroide outfit outing output outset overdo oxygen packed packet paddle palace pallet pander pantry papacy papers parade pardon parent parish parlor parody parole parrot parsed partly passed pastel pastor pastry patent patrol patron pauses pebble pencil people pepper period permit person petals phrase picked pickle picnic pierce pigeon pillar pillow pirate pistol pivots placed planar planet plaque plasma plates player pledge plenty plight plowed plunge pocket poetry points poison poker polish polite ponder portal porter poster potent potion pottery pounce pounds powder powers praise prayer preach prefer pretty priest prince prison profit prompt proper proven proves prowess public pulled pulpit punish pupils purely purify pursue pushed puzzle quaint quaker quartz quench quests quiche quiver quotas rabbit racket radish raised raisin random ranges ransom rarely rather ratify ration reader really realms reason rebels rebuke recall recede recent recess recite reckon record recoup rectify reduce reflex reform refuge refund refuse refute regard regime region rejoin relate relay relics relied relief relish remade remain remark remedy remind remote remove render rental repair repeal repeat replay report rescue resign resist resort rested result resume retail retain retire retold retort retreat return reveal revere revise revive reward rhythm ribbon riches richer riddle rifles rigged rights rigors ringer ripple rising rivals robust rocket roller romans roofed rookie roomed rooted rotate rubber rubble rugged ruined ruling rumble runner runway rustic sacred saddle safely safest sailor salads saline saloon salute salvage sample sandal sanity savage savior saying scales scarce scared scenes scenic scheme school scoops scorch scored scrap scream screen script scroll search season second secret sector secure seeing seemed seized seldom select seller senate sender senior sensor sentry serene series sermon serums served server settle severe sewage shabby shadow shaken shaman shaped shapes shared sharer shaver sheath sheets shelve shield shifts shiny shiver shores should shovel shower shrine shrink shrubs sicken sights signal signed silent silver simply sinful singer single siphon sister sketch slacks slated slaves sleeve slight slogan slopes smiled smiles smooth smoothie snatch sneeze social sodium solely solemn solids solved sonata sought source soviet spaces sparks speaks speech sphere spider spinal spirit splash spoken sponge spoons sports spread spring sprint sprung square squash squeak squint stable stacks stages stairs stakes stamps stance stands staple starch stared starts states static statue status steady stencil stereo sticks stigma stitch stocks stolen stones stools storms straight strain strand strange straps streak stream street stress strict strike string strips strive strode stroke stroll strong struck struts stubby studio stupid sturdy submit subtle suburb subway sudden suffer sugars summer summit sunken sunset superb supper supple supply surety surface surfer surfed surge survey switch symbol syntax syrups system tablet tackle tactic talent talked tandem tangle target tariff tassel tavern teapot teaser temper tenant tender tennis tenure terror thatch thaws theism theory thesis thirst thirty though thread threat thrill throat throne thrust ticket tidied tights tinder tinker tinted tiptoe tirade tissue toggle toilet token tomato tongue topple torrid toward towels traced tracks trader trades tragic trails trains tramps trance trauma travel treaty treble trembling trench trends triads tribal tribes tricks trifle trigger trinkets triple triumph troops trophy trough trowel truant trucks trusts truths trying tucked tумble tundra tunnel turban turkey turmoil turned turret tussle tweezer twelve twenty twigs twirls typify tyrant ultima umpire unable uncle undergo undone unduly unfair unfold unhappy unique united unjust unkind unless unlike unload unlock unpack unrest unsafe unseen untold unused unveil unwind unwise upbeat update upheld uphill uphold upkeep upland uplink upload uproot upside uptown upward urgent urging usable useful usurp uterus utmost vacant vacuum valley valued values vandal vanish vanity vassal vastly vector veiled velvet vendor veneer vented verbal verify versus vessel vested viable vibrant victim victor vigils vigour villas vinegar violet violin virgin virtue vision visits vistas visual vivid vocals vodkas volume vortex voters voyage waddle wading waffle wagons waited waiter wakeful walked walker wallet walnut wander wanted warden warmth warned warped washer wasted watery waxing weaken wealth weapon weasel weaved weeded weekly weighed weight welder wholly widely widget wields wilder window winery winter wiring wisdom wished within wizard wonder wooden worded worker worthy wreath wrench writer writes yearly yearns yelled yellow yields zealot zenith zephyr zigzag zinger zipper zither zodiac zombie`
+};
+
+/* ============================================================
+   2. STATE
+   ============================================================ */
+const MODE_LEN = {easy:4, classic:5, challenge:6, mixed:0};
+let state = {
+  mode:"classic",
+  length:5,
+  answerObj:null,
+  answer:"",
+  guesses:[],      // array of {word, result[]}
+  current:"",
+  row:0,
+  over:false,
+  won:false,
+  hintShown:false
+};
+
+// Build guess sets per length (Set of uppercase words), include answers.
+const GUESS_SETS = {};
+(function buildGuessSets(){
+  [4,5,6].forEach(len=>{
+    const set = new Set();
+    GUESS_RAW[len].split(/\s+/).forEach(w=>{
+      w = w.replace(/[^a-zA-Zа-яА-Я]/g,"").toUpperCase();
+      if(w.length===len) set.add(w);
+    });
+    // include answers (trim padding spaces, only same length & A-Z)
+    ANSWERS[len].forEach(o=>{
+      const w = o.word.trim().toUpperCase();
+      if(w.length===len && /^[A-Z]+$/.test(w)) set.add(w);
+    });
+    GUESS_SETS[len] = set;
+  });
+})();
+// sanitize answer pools: only valid A-Z words of correct length
+const VALID_ANSWERS = {};
+[4,5,6].forEach(len=>{
+  VALID_ANSWERS[len] = ANSWERS[len].filter(o=>{
+    const w = o.word.trim().toUpperCase();
+    return w.length===len && /^[A-Z]+$/.test(w);
+  }).map(o=>({...o, word:o.word.trim().toUpperCase()}));
+});
+
+/* ============================================================
+   3. LOCALSTORAGE HELPERS
+   ============================================================ */
+function loadStore(){
+  try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; }
+  catch(e){ return {}; }
+}
+function saveStore(s){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }catch(e){}
+}
+function defaultStats(){
+  return {played:0, wins:0, streak:0, best:0, dist:{1:0,2:0,3:0,4:0,5:0,6:0}, winStreakRun:0};
+}
+function getStats(){
+  const s = loadStore();
+  return s.stats || defaultStats();
+}
+function setStats(st){
+  const s = loadStore(); s.stats = st; saveStore(s);
+}
+function getQueues(){
+  const s = loadStore(); return s.queues || {};
+}
+function setQueues(q){
+  const s = loadStore(); s.queues = q; saveStore(s);
+}
+function getLastMode(){ return loadStore().lastMode || "classic"; }
+function setLastMode(m){ const s=loadStore(); s.lastMode=m; saveStore(s); }
+
+/* ============================================================
+   4. QUEUE RANDOMIZATION (Fisher-Yates)
+   ============================================================ */
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+function buildQueue(len){
+  // queue of indices into VALID_ANSWERS[len]
+  return shuffle(VALID_ANSWERS[len].map((_,i)=>i));
+}
+function nextAnswer(len){
+  const queues = getQueues();
+  let q = queues[len];
+  if(!Array.isArray(q) || q.length===0){
+    q = buildQueue(len);
+  }
+  // reshuffle when low (keeps variety without instant repeats)
+  if(q.length < 2 && VALID_ANSWERS[len].length > 4){
+    // append a fresh shuffle avoiding immediate repeat of last
+    const fresh = buildQueue(len);
+    q = q.concat(fresh);
+  }
+  const idx = q.shift();
+  queues[len] = q;
+  setQueues(queues);
+  return VALID_ANSWERS[len][idx];
+}
+
+/* ============================================================
+   5. RENDERING
+   ============================================================ */
+const boardEl = document.getElementById("board");
+const keyboardEl = document.getElementById("keyboard");
+const KEY_ROWS = ["QWERTYUIOP","ASDFGHJKL","ZXCVBNM"];
+
+function renderBoard(){
+  boardEl.className = "board len"+state.length;
+  boardEl.style.gridTemplateColumns = "1fr";
+  boardEl.innerHTML = "";
+  for(let r=0;r<MAX_GUESSES;r++){
+    const row = document.createElement("div");
+    row.className="row";
+    row.style.gridTemplateColumns = `repeat(${state.length}, auto)`;
+    for(let c=0;c<state.length;c++){
+      const t = document.createElement("div");
+      t.className="tile";
+      t.id = `tile-${r}-${c}`;
+      const face = document.createElement("div");
+      face.className="face";
+      t.appendChild(face);
+      row.appendChild(t);
+    }
+    boardEl.appendChild(row);
+  }
+  // re-render any existing guesses (used on restore-less new game it's empty)
+  state.guesses.forEach((g,r)=>{
+    for(let c=0;c<state.length;c++){
+      const t=document.getElementById(`tile-${r}-${c}`);
+      t.querySelector(".face").textContent=g.word[c];
+      t.textContent=g.word[c];
+      t.classList.add(g.result[c]);
+    }
+  });
+}
+
+function renderKeyboard(){
+  keyboardEl.innerHTML="";
+  KEY_ROWS.forEach((rowStr,i)=>{
+    const row=document.createElement("div");
+    row.className="krow";
+    if(i===2){
+      row.appendChild(makeKey("ENTER",true));
+    }
+    rowStr.split("").forEach(ch=> row.appendChild(makeKey(ch,false)));
+    if(i===2){
+      row.appendChild(makeKey("DEL",true));
+    }
+    keyboardEl.appendChild(row);
+  });
+}
+function makeKey(label,wide){
+  const b=document.createElement("button");
+  b.className="key"+(wide?" wide":"");
+  b.textContent = label==="DEL" ? "Back" : label;
+  b.dataset.key=label;
+  b.addEventListener("click",()=>handleKey(label));
+  return b;
+}
+function updateTileRow(){
+  const r=state.row;
+  for(let c=0;c<state.length;c++){
+    const t=document.getElementById(`tile-${r}-${c}`);
+    if(!t) continue;
+    const ch = state.current[c] || "";
+    t.querySelector(".face").textContent = ch;
+    t.textContent = ch ? ch : "";
+    // keep face for flip; set plain text fallback
+    t.classList.toggle("filled", !!ch);
+  }
+}
+
+/* ============================================================
+   6. INPUT HANDLING
+   ============================================================ */
+function handleKey(key){
+  if(state.over) return;
+  if(key==="ENTER"){ submitGuess(); return; }
+  if(key==="DEL"){
+    state.current = state.current.slice(0,-1);
+    updateTileRow();
+    return;
+  }
+  if(/^[A-Z]$/.test(key) && state.current.length < state.length){
+    state.current += key;
+    updateTileRow();
+  }
+}
+document.addEventListener("keydown",e=>{
+  if(document.getElementById("overlay").classList.contains("show")) return;
+  if(document.getElementById("statsOverlay").classList.contains("show")) return;
+  const k=e.key;
+  if(k==="Enter") handleKey("ENTER");
+  else if(k==="Backspace") handleKey("DEL");
+  else if(/^[a-zA-Z]$/.test(k)) handleKey(k.toUpperCase());
+});
+
+/* ============================================================
+   7. GUESS VALIDATION
+   ============================================================ */
+function isValidGuess(word){
+  if(word.length < state.length) return {ok:false,msg:"Too short"};
+  if(word.length > state.length) return {ok:false,msg:"Too long"};
+  if(!GUESS_SETS[state.length].has(word)) return {ok:false,msg:"Not in word list"};
+  return {ok:true};
+}
+
+/* ============================================================
+   8. SCORING (Wordle with duplicate handling)
+   ============================================================ */
+function scoreGuess(guess, answer){
+  const res = new Array(guess.length).fill("absent");
+  const counts = {};
+  for(const ch of answer) counts[ch]=(counts[ch]||0)+1;
+  // first pass: correct
+  for(let i=0;i<guess.length;i++){
+    if(guess[i]===answer[i]){ res[i]="correct"; counts[guess[i]]--; }
+  }
+  // second pass: present
+  for(let i=0;i<guess.length;i++){
+    if(res[i]==="correct") continue;
+    const ch=guess[i];
+    if(counts[ch]>0){ res[i]="present"; counts[ch]--; }
+  }
+  return res;
+}
+
+/* ============================================================
+   submit + reveal animation
+   ============================================================ */
+const WIN_MSGS = ["Well done","Grace found","Victory","You stayed the course","Faithful and true","Amen!","Blessed"];
+function submitGuess(){
+  if(state.over) return;
+  const word = state.current.toUpperCase();
+  const v = isValidGuess(word);
+  if(!v.ok){ toast(v.msg); shakeRow(); return; }
+  const result = scoreGuess(word, state.answer);
+  state.guesses.push({word, result});
+  const r=state.row;
+  // reveal one by one
+  for(let c=0;c<state.length;c++){
+    const t=document.getElementById(`tile-${r}-${c}`);
+    setTimeout(()=>{
+      t.classList.add("reveal");
+      setTimeout(()=>{
+        t.querySelector(".face").textContent=word[c];
+        t.textContent=word[c];
+        t.classList.add(result[c]);
+      },270);
+    }, c*280);
+  }
+  const totalDelay = state.length*280 + 320;
+  setTimeout(()=>{
+    updateKeyboard(word,result);
+    const won = result.every(x=>x==="correct");
+    if(won){
+      state.row++;
+      finishGame(true);
+    } else if(state.row+1 >= MAX_GUESSES){
+      state.row++;
+      finishGame(false);
+    } else {
+      state.row++;
+      state.current="";
+    }
+  }, totalDelay);
+  state.current="";
+}
+function shakeRow(){
+  const r=state.row;
+  for(let c=0;c<state.length;c++){
+    const t=document.getElementById(`tile-${r}-${c}`);
+    if(!t)continue;
+    t.animate([{transform:"translateX(0)"},{transform:"translateX(-6px)"},{transform:"translateX(6px)"},{transform:"translateX(0)"}],{duration:300});
+  }
+}
+const KEY_RANK={absent:0,present:1,correct:2};
+function updateKeyboard(word,result){
+  for(let i=0;i<word.length;i++){
+    const ch=word[i];
+    const btn=keyboardEl.querySelector(`[data-key="${ch}"]`);
+    if(!btn)continue;
+    const cur = btn.classList.contains("correct")?"correct":btn.classList.contains("present")?"present":btn.classList.contains("absent")?"absent":null;
+    const next = result[i];
+    if(cur===null || KEY_RANK[next] > KEY_RANK[cur]){
+      btn.classList.remove("correct","present","absent");
+      btn.classList.add(next);
+    }
+  }
+}
+
+/* ============================================================
+   9. STATS
+   ============================================================ */
+function finishGame(won){
+  state.over=true; state.won=won;
+  const st=getStats();
+  st.played++;
+  if(won){
+    st.wins++;
+    st.streak++;
+    st.winStreakRun=(st.winStreakRun||0)+1;
+    if(st.streak>st.best) st.best=st.streak;
+    const guessesUsed = state.row;
+    st.dist[guessesUsed] = (st.dist[guessesUsed]||0)+1;
+  } else {
+    st.streak=0;
+    st.winStreakRun=0;
+  }
+  setStats(st);
+  setLastMode(state.mode);
+
+  if(won){
+    winSparkles();
+    pulseWinRow();
+    let msg = WIN_MSGS[Math.floor(Math.random()*WIN_MSGS.length)];
+    if((st.winStreakRun||0) >= 3) msg = `Blessing streak ×${st.winStreakRun}! ${msg}`;
+    toast(msg);
+  } else {
+    toast("Take heart — try again");
+  }
+  setTimeout(()=>showResultModal(won, st), won? 900: 600);
+}
+function pulseWinRow(){
+  const r=state.row-1;
+  for(let c=0;c<state.length;c++){
+    const t=document.getElementById(`tile-${r}-${c}`);
+    if(!t)continue;
+    setTimeout(()=>t.classList.add("win-pulse"), c*90);
+  }
+}
+
+/* ============================================================
+   10. SHARE
+   ============================================================ */
+function buildShareText(){
+  const len=state.length;
+  const modeLabel = {4:"Easy",5:"Classic",6:"Challenge"}[len] || "FaithWord";
+  const tries = state.won ? state.row : "X";
+  let txt = `FaithWord (${modeLabel}) ${tries}/6\n`;
+  state.guesses.forEach(g=>{
+    txt += g.result.map(r=> r==="correct"?"🟩":r==="present"?"🟨":"⬛").join("")+"\n";
+  });
+  return txt.trim();
+}
+function shareResult(){
+  const txt = buildShareText();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast("Copied to clipboard"),()=>fallbackCopy(txt));
+  } else fallbackCopy(txt);
+}
+function fallbackCopy(txt){
+  try{
+    const ta=document.createElement("textarea");
+    ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+    toast("Copied to clipboard");
+  }catch(e){ toast("Copy not supported"); }
+}
+
+/* ============================================================
+   11. MODAL / TOAST
+   ============================================================ */
+const toastEl=document.getElementById("toast");
+let toastTimer=null;
+function toast(msg){
+  toastEl.textContent=msg;
+  toastEl.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove("show"),2200);
+}
+function showResultModal(won, st){
+  const o=state.answerObj;
+  document.getElementById("resultTitle").textContent = won ? (WIN_MSGS[0]) : "Keep Faith";
+  document.getElementById("resAnswer").textContent = state.answer;
+  document.getElementById("resCat").textContent = o.category;
+  document.getElementById("resVerse").textContent = `"${o.hint}"  — ${o.verse}`;
+  document.getElementById("resNote").textContent = o.note;
+  document.getElementById("resCount").textContent = won ? `Solved in ${state.row} ${state.row===1?"guess":"guesses"}` : "The word was revealed";
+  document.getElementById("msPlayed").textContent = st.played;
+  document.getElementById("msWin").textContent = st.played? Math.round(st.wins/st.played*100)+"%" : "0%";
+  document.getElementById("msCur").textContent = st.streak;
+  document.getElementById("msBest").textContent = st.best;
+  document.getElementById("overlay").classList.add("show");
+}
+function closeResult(){ document.getElementById("overlay").classList.remove("show"); }
+
+function showStats(){
+  const st=getStats();
+  document.getElementById("stPlayed").textContent=st.played;
+  document.getElementById("stWin").textContent=st.played?Math.round(st.wins/st.played*100)+"%":"0%";
+  document.getElementById("stCur").textContent=st.streak;
+  document.getElementById("stBest").textContent=st.best;
+  const box=document.getElementById("distBox");
+  box.innerHTML="";
+  const maxV=Math.max(1,...Object.values(st.dist));
+  for(let i=1;i<=6;i++){
+    const v=st.dist[i]||0;
+    const row=document.createElement("div");
+    row.className="dist-row";
+    const cur = (state.won && state.over && state.row===i) ? " cur":"";
+    row.innerHTML=`<span class="num">${i}</span><div class="dist-bar${cur}" style="width:${Math.max(8,(v/maxV)*100)}%">${v}</div>`;
+    box.appendChild(row);
+  }
+  document.getElementById("statsOverlay").classList.add("show");
+}
+function closeStats(){ document.getElementById("statsOverlay").classList.remove("show"); }
+
+/* Sparkles on win */
+function winSparkles(){
+  const cx=window.innerWidth/2, cy=window.innerHeight/2.4;
+  for(let i=0;i<26;i++){
+    const s=document.createElement("div");
+    s.className="sparkle";
+    s.style.left=cx+"px"; s.style.top=cy+"px";
+    const ang=Math.random()*Math.PI*2, dist=80+Math.random()*180;
+    s.style.setProperty("--dx",Math.cos(ang)*dist+"px");
+    s.style.setProperty("--dy",Math.sin(ang)*dist+"px");
+    s.style.background = Math.random()>.5? "#f0c040":"#fff";
+    document.body.appendChild(s);
+    s.style.animation=`sparkleAnim ${700+Math.random()*500}ms ease-out forwards`;
+    setTimeout(()=>s.remove(),1300);
+  }
+}
+
+/* ============================================================
+   HINT
+   ============================================================ */
+function toggleHint(){
+  const box=document.getElementById("hintBox");
+  if(state.hintShown){ box.classList.remove("show"); state.hintShown=false; return; }
+  box.textContent = `Hint: ${state.answerObj.hint}  (${state.answerObj.category})`;
+  box.classList.add("show");
+  state.hintShown=true;
+}
+
+/* ============================================================
+   GAME LIFECYCLE
+   ============================================================ */
+function pickLength(){
+  if(state.mode==="mixed"){
+    return [4,5,6][Math.floor(Math.random()*3)];
+  }
+  return MODE_LEN[state.mode];
+}
+function newGame(){
+  closeResult();
+  state.length = pickLength();
+  state.answerObj = nextAnswer(state.length);
+  state.answer = state.answerObj.word;
+  state.guesses=[];
+  state.current="";
+  state.row=0;
+  state.over=false;
+  state.won=false;
+  state.hintShown=false;
+  document.getElementById("hintBox").classList.remove("show");
+  renderBoard();
+  renderKeyboard();
+}
+function giveUp(){
+  if(state.over) return;
+  state.over=true; state.won=false;
+  // reveal answer row visually on next empty row
+  const r=state.row;
+  for(let c=0;c<state.length;c++){
+    const t=document.getElementById(`tile-${r}-${c}`);
+    if(!t)continue;
+    t.querySelector(".face").textContent=state.answer[c];
+    t.textContent=state.answer[c];
+    t.classList.add("correct");
+  }
+  const st=getStats();
+  st.played++; st.streak=0; st.winStreakRun=0;
+  setStats(st);
+  toast("The word is revealed");
+  setTimeout(()=>showResultModal(false, getStats()),700);
+}
+
+function setMode(m){
+  state.mode=m;
+  document.querySelectorAll(".mode-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===m));
+  newGame();
+}
+
+/* ============================================================
+   WIRING
+   ============================================================ */
+document.getElementById("modes").addEventListener("click",e=>{
+  const b=e.target.closest(".mode-btn");
+  if(b) setMode(b.dataset.mode);
+});
+document.getElementById("newBtn").addEventListener("click",newGame);
+document.getElementById("statsBtn").addEventListener("click",showStats);
+document.getElementById("hintBtn").addEventListener("click",toggleHint);
+document.getElementById("shareBtn").addEventListener("click",()=>{ if(state.over) shareResult(); else toast("Finish the round to share"); });
+document.getElementById("giveupBtn").addEventListener("click",giveUp);
+document.getElementById("playAgainBtn").addEventListener("click",newGame);
+document.getElementById("shareModalBtn").addEventListener("click",shareResult);
+document.getElementById("closeModal").addEventListener("click",closeResult);
+document.getElementById("closeStats").addEventListener("click",closeStats);
+document.getElementById("closeStats2").addEventListener("click",closeStats);
+document.getElementById("overlay").addEventListener("click",e=>{ if(e.target.id==="overlay") closeResult(); });
+document.getElementById("statsOverlay").addEventListener("click",e=>{ if(e.target.id==="statsOverlay") closeStats(); });
+
+/* init */
+state.mode = getLastMode();
+document.querySelectorAll(".mode-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===state.mode));
+newGame();
+</script>
+</body>
+</html>
