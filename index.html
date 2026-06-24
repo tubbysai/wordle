@@ -204,10 +204,6 @@ header{width:100%;text-align:center;margin-bottom:10px;}
   box-shadow:0 0 10px var(--gold-bright);pointer-events:none;z-index:130;opacity:0;}
 @keyframes sparkleAnim{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(0)}}
 
-/* Hide on-screen keyboard on desktop — physical keyboard available */
-@media (min-width:640px){
-  .keyboard{display:none;}
-}
 @media (max-width:430px){
   .tile{width:50px;height:50px;font-size:1.7rem;}
   .board.len4 .tile{width:54px;height:54px;}
